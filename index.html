@@ -379,13 +379,19 @@ function encodeKey(w){ return w.replace(/[.#$/\[\]]/g, "_"); }
    ========================================================= */
 let currentUser = null;       // nombre para mostrar (de Google)
 let currentUserEmail = null;  // email verificado (para las reglas de Firebase)
-let currentMonth = new Date().toISOString().slice(0,7); // YYYY-MM
+let currentMonth = todayIsoDate().slice(0,7); // YYYY-MM, calculado en local, no UTC
 let allMovements = {}; // id -> data
 let currentFilter = "todos";
 let pendingImportRows = [];
 
 const $ = sel => document.querySelector(sel);
 const eur = n => (n||0).toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
+function pad2(n){ return String(n).padStart(2, "0"); }
+function todayIsoDate(){
+  const d = new Date();
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+}
+function monthKey(y, m){ return y + "-" + pad2(m); }
 
 /* ---------- login con Google ---------- */
 const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -446,9 +452,11 @@ function renderMonthLabel(){
 $("#prevMonth").addEventListener("click", ()=>{ shiftMonth(-1); });
 $("#nextMonth").addEventListener("click", ()=>{ shiftMonth(1); });
 function shiftMonth(delta){
-  const [y,m] = currentMonth.split("-").map(Number);
-  const d = new Date(y, m-1+delta, 1);
-  currentMonth = d.toISOString().slice(0,7);
+  let [y,m] = currentMonth.split("-").map(Number);
+  m += delta;
+  if (m < 1){ m = 12; y -= 1; }
+  else if (m > 12){ m = 1; y += 1; }
+  currentMonth = monthKey(y, m);
   renderMonthLabel();
   renderAll();
 }
@@ -603,7 +611,7 @@ function setAddType(t){
 $("#fabAdd").addEventListener("click", ()=>{
   $("#mvConcept").value = "";
   $("#mvAmount").value = "";
-  $("#mvDate").value = new Date().toISOString().slice(0,10);
+  $("#mvDate").value = todayIsoDate();
   setAddType("ingreso");
   $("#addSheetBackdrop").classList.add("open");
 });
