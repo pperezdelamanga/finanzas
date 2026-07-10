@@ -28,6 +28,7 @@
     --c-transporte:#6B4E71;
     --c-ocio:#C4574B;
     --c-ahorro:#4A7C6F;
+    --c-otras:#9C8AA5;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -112,6 +113,7 @@
   .mv-amount.ingreso{color:var(--good);}
   .mv-amount.gasto{color:var(--text);}
   .mv-del{background:none; border:none; color:var(--text-soft); font-size:17px; cursor:pointer; padding:4px;}
+  .mv-edit{background:none; border:none; color:var(--text-soft); font-size:15px; cursor:pointer; padding:4px;}
 
   .filter-row{display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px;}
   .chip{
@@ -240,6 +242,30 @@
       <div id="catCards"></div>
     </section>
 
+    <!-- RESUMEN ANUAL -->
+    <section class="tab-panel" id="tab-anual">
+      <div class="month-nav" style="margin-bottom:14px;">
+        <button id="prevYear">‹</button>
+        <div class="month-label" id="yearLabel">2026</div>
+        <button id="nextYear">›</button>
+      </div>
+      <div class="totals-row">
+        <div class="total-card">
+          <div class="label">Ingresos</div>
+          <div class="value num" id="sumIngresosYear">0 €</div>
+        </div>
+        <div class="total-card">
+          <div class="label">Gastos</div>
+          <div class="value num" id="sumGastosYear">0 €</div>
+        </div>
+        <div class="total-card balance">
+          <div class="label">Balance</div>
+          <div class="value num" id="sumBalanceYear">0 €</div>
+        </div>
+      </div>
+      <div id="catCardsYear"></div>
+    </section>
+
     <!-- MOVIMIENTOS -->
     <section class="tab-panel" id="tab-movs">
       <div class="filter-row" id="filterRow"></div>
@@ -263,17 +289,18 @@
   <button class="fab" id="fabAdd">+</button>
 
   <nav class="tabbar">
-    <button class="tab-btn active" data-tab="resumen"><span class="ic">📊</span>Resumen</button>
+    <button class="tab-btn active" data-tab="resumen"><span class="ic">📊</span>Mes</button>
+    <button class="tab-btn" data-tab="anual"><span class="ic">📅</span>Año</button>
     <button class="tab-btn" data-tab="movs"><span class="ic">📋</span>Movimientos</button>
     <button class="tab-btn" data-tab="import"><span class="ic">📥</span>Importar PDF</button>
   </nav>
 </div>
 
-<!-- ADD MOVEMENT SHEET -->
+<!-- ADD/EDIT MOVEMENT SHEET -->
 <div class="sheet-backdrop" id="addSheetBackdrop">
   <div class="sheet">
     <button class="sheet-close" id="closeAddSheet">✕</button>
-    <h3>Nuevo movimiento</h3>
+    <h3 id="sheetTitle">Nuevo movimiento</h3>
     <div class="toggle-row">
       <button id="typeIngresoBtn" class="active" data-type="ingreso">Ingreso</button>
       <button id="typeGastoBtn" data-type="gasto">Gasto</button>
@@ -295,6 +322,7 @@
       <input type="date" id="mvDate">
     </div>
     <button class="btn-main" id="saveMovBtn">Guardar</button>
+    <button class="btn-ghost" id="deleteMovBtn" style="display:none; margin-top:10px; color:var(--bad); border-color:var(--bad);">Eliminar movimiento</button>
   </div>
 </div>
 
@@ -330,18 +358,25 @@ const ALLOWED_EMAILS = [
    CATEGORÍAS Y PRESUPUESTO
    ========================================================= */
 const CATEGORIES = [
-  { key: "Vivienda",         pct: 0.35,  color: "var(--c-vivienda)" },
-  { key: "Alimentación",     pct: 0.15,  color: "var(--c-alimentacion)" },
-  { key: "Gastos hijos",     pct: 0.15,  color: "var(--c-hijos)" },
-  { key: "Transporte",       pct: 0.125, color: "var(--c-transporte)" },
-  { key: "Ocio",             pct: 0.125, color: "var(--c-ocio)" },
-  { key: "Ahorro/inversión", pct: 0.15,  color: "var(--c-ahorro)" },
+  { key: "Vivienda",              pct: 0.30,  color: "var(--c-vivienda)" },
+  { key: "Alimentación/Farmacia", pct: 0.15,  color: "var(--c-alimentacion)" },
+  { key: "Gastos hijos",          pct: 0.15,  color: "var(--c-hijos)" },
+  { key: "Transporte",            pct: 0.125, color: "var(--c-transporte)" },
+  { key: "Ocio",                  pct: 0.125, color: "var(--c-ocio)" },
+  { key: "Ahorro/inversión",      pct: 0.10,  color: "var(--c-ahorro)" },
+  { key: "Otras compras",         pct: 0.05,  color: "var(--c-otras)" },
 ];
 
+// Categorías antiguas ya guardadas en Firebase con el nombre anterior:
+// se tratan como equivalentes a la nueva para que no se pierdan de las tarjetas/gráficas.
+const CATEGORY_ALIASES = { "Alimentación": "Alimentación/Farmacia" };
+function normalizeCategory(cat){ return CATEGORY_ALIASES[cat] || cat; }
+
 const DEFAULT_KEYWORDS = {
-  "mercadona":"Alimentación","carrefour":"Alimentación","lidl":"Alimentación","dia ":"Alimentación",
-  "alcampo":"Alimentación","eroski":"Alimentación","aldi":"Alimentación","supermercado":"Alimentación",
-  "fruteria":"Alimentación","panaderia":"Alimentación","ahorramas":"Alimentación","frutería":"Alimentación",
+  "mercadona":"Alimentación/Farmacia","carrefour":"Alimentación/Farmacia","lidl":"Alimentación/Farmacia","dia ":"Alimentación/Farmacia",
+  "alcampo":"Alimentación/Farmacia","eroski":"Alimentación/Farmacia","aldi":"Alimentación/Farmacia","supermercado":"Alimentación/Farmacia",
+  "fruteria":"Alimentación/Farmacia","panaderia":"Alimentación/Farmacia","ahorramas":"Alimentación/Farmacia","frutería":"Alimentación/Farmacia",
+  "farmacia":"Alimentación/Farmacia","parafarmacia":"Alimentación/Farmacia",
   "colegio":"Gastos hijos","guarderia":"Gastos hijos","guardería":"Gastos hijos","ludoteca":"Gastos hijos",
   "juguet":"Gastos hijos","pediatra":"Gastos hijos","ampa":"Gastos hijos","extraescolar":"Gastos hijos",
   "decathlon ninos":"Gastos hijos","toys":"Gastos hijos",
@@ -355,6 +390,8 @@ const DEFAULT_KEYWORDS = {
   "agua":"Vivienda","gas natural":"Vivienda",
   "traspaso":"Ahorro/inversión","fondo":"Ahorro/inversión","indexa":"Ahorro/inversión","myinvestor":"Ahorro/inversión",
   "plan de pensiones":"Ahorro/inversión","broker":"Ahorro/inversión",
+  "amazon":"Otras compras","zara":"Otras compras","el corte ingles":"Otras compras","decathlon":"Otras compras",
+  "ikea":"Otras compras","fnac":"Otras compras","leroy merlin":"Otras compras",
 };
 
 let customKeywords = {};
@@ -374,12 +411,39 @@ function learnKeyword(concept, category){
 }
 function encodeKey(w){ return w.replace(/[.#$/\[\]]/g, "_"); }
 
+/* ---- Líneas a excluir por defecto al importar (ej. liquidación de tarjeta de crédito,
+   que ya se importa aparte desde el extracto de la tarjeta y duplicaría el gasto) ---- */
+const DEFAULT_EXCLUDE_PATTERNS = [
+  "liquidacion tarjeta", "liquidación tarjeta", "liquidacion de tarjeta", "liquidación de tarjeta",
+  "pago tarjeta credito", "pago tarjeta crédito", "pago tarjeta de credito", "pago tarjeta de crédito",
+  "adeudo tarjeta", "amortizacion tarjeta", "amortización tarjeta",
+  "cargo tarjeta credito", "cargo tarjeta crédito", "recibo tarjeta"
+];
+let customExcludePatterns = [];
+db.ref("excludeKeywords").on("value", snap=>{
+  const val = snap.val() || {};
+  customExcludePatterns = Object.keys(val);
+});
+
+function isLikelyDuplicateLine(concept){
+  const c = (concept || "").toLowerCase();
+  return DEFAULT_EXCLUDE_PATTERNS.some(p => c.includes(p)) ||
+         customExcludePatterns.some(p => c.includes(p));
+}
+function learnExcludeKeyword(concept){
+  if (!concept) return;
+  const words = concept.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+  if (words.length === 0) return;
+  db.ref("excludeKeywords/" + encodeKey(words[0])).set(true);
+}
+
 /* =========================================================
    ESTADO
    ========================================================= */
 let currentUser = null;       // nombre para mostrar (de Google)
 let currentUserEmail = null;  // email verificado (para las reglas de Firebase)
 let currentMonth = todayIsoDate().slice(0,7); // YYYY-MM, calculado en local, no UTC
+let currentYear = String(todayIsoDate().slice(0,4)); // YYYY
 let allMovements = {}; // id -> data
 let currentFilter = "todos";
 let pendingImportRows = [];
@@ -439,6 +503,7 @@ function startApp(){
   $("#whoLabel").textContent = currentUser + " · salir";
   populateCategorySelect();
   renderMonthLabel();
+  renderYearLabel();
   buildFilterChips();
   listenMovements();
 }
@@ -460,6 +525,13 @@ function shiftMonth(delta){
   renderMonthLabel();
   renderAll();
 }
+
+/* ---------- year nav ---------- */
+function renderYearLabel(){
+  $("#yearLabel").textContent = currentYear;
+}
+$("#prevYear").addEventListener("click", ()=>{ currentYear = String(Number(currentYear)-1); renderYearLabel(); renderAll(); });
+$("#nextYear").addEventListener("click", ()=>{ currentYear = String(Number(currentYear)+1); renderYearLabel(); renderAll(); });
 
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab-btn").forEach(btn=>{
@@ -485,30 +557,25 @@ function movementsOfMonth(){
     .map(([id,m]) => ({id, ...m}))
     .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
 }
+function movementsOfYear(){
+  return Object.entries(allMovements)
+    .filter(([id,m]) => (m.date||"").startsWith(currentYear))
+    .map(([id,m]) => ({id, ...m}))
+    .sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+}
 
 function renderAll(){
   renderResumen();
+  renderAnual();
   renderMovList();
 }
 
-/* ---------- resumen ---------- */
-function renderResumen(){
-  const movs = movementsOfMonth();
-  const ingresos = movs.filter(m=>m.type==="ingreso").reduce((s,m)=>s+Number(m.amount||0),0);
-  const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
-  const balance = ingresos - gastos;
-
-  $("#sumIngresos").textContent = eur(ingresos);
-  $("#sumGastos").textContent = eur(gastos);
-  const balEl = $("#sumBalance");
-  balEl.textContent = eur(balance);
-  balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
-
-  const wrap = $("#catCards");
-  wrap.innerHTML = "";
+/* ---------- tarjetas de categoría (compartido entre resumen mensual y anual) ---------- */
+function renderCategoryCards(wrapEl, movs, ingresosTotal){
+  wrapEl.innerHTML = "";
   CATEGORIES.forEach(cat=>{
-    const spent = movs.filter(m=>m.type==="gasto" && m.category===cat.key).reduce((s,m)=>s+Number(m.amount||0),0);
-    const forecast = ingresos * cat.pct;
+    const spent = movs.filter(m=>m.type==="gasto" && normalizeCategory(m.category)===cat.key).reduce((s,m)=>s+Number(m.amount||0),0);
+    const forecast = ingresosTotal * cat.pct;
     const pctUsed = forecast > 0 ? Math.min(100, (spent/forecast)*100) : (spent>0?100:0);
     const over = forecast > 0 && spent > forecast;
     const div = document.createElement("div");
@@ -522,8 +589,40 @@ function renderResumen(){
       <div class="amounts"><span class="spent num">${eur(spent)}</span> de <span class="num">${eur(forecast)}</span> previstos</div>
       <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pctUsed}%"></div></div>
     `;
-    wrap.appendChild(div);
+    wrapEl.appendChild(div);
   });
+}
+
+/* ---------- resumen mensual ---------- */
+function renderResumen(){
+  const movs = movementsOfMonth();
+  const ingresos = movs.filter(m=>m.type==="ingreso").reduce((s,m)=>s+Number(m.amount||0),0);
+  const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
+  const balance = ingresos - gastos;
+
+  $("#sumIngresos").textContent = eur(ingresos);
+  $("#sumGastos").textContent = eur(gastos);
+  const balEl = $("#sumBalance");
+  balEl.textContent = eur(balance);
+  balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
+
+  renderCategoryCards($("#catCards"), movs, ingresos);
+}
+
+/* ---------- resumen anual ---------- */
+function renderAnual(){
+  const movs = movementsOfYear();
+  const ingresos = movs.filter(m=>m.type==="ingreso").reduce((s,m)=>s+Number(m.amount||0),0);
+  const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
+  const balance = ingresos - gastos;
+
+  $("#sumIngresosYear").textContent = eur(ingresos);
+  $("#sumGastosYear").textContent = eur(gastos);
+  const balEl = $("#sumBalanceYear");
+  balEl.textContent = eur(balance);
+  balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
+
+  renderCategoryCards($("#catCardsYear"), movs, ingresos);
 }
 
 /* ---------- movimientos list ---------- */
@@ -553,7 +652,7 @@ function catColor(cat){
 function renderMovList(){
   let movs = movementsOfMonth();
   if (currentFilter === "ingreso") movs = movs.filter(m=>m.type==="ingreso");
-  else if (currentFilter !== "todos") movs = movs.filter(m=>m.category===currentFilter);
+  else if (currentFilter !== "todos") movs = movs.filter(m=>normalizeCategory(m.category)===currentFilter);
 
   const list = $("#movList");
   list.innerHTML = "";
@@ -564,9 +663,10 @@ function renderMovList(){
   movs.forEach(m=>{
     const row = document.createElement("div");
     row.className = "mv-item";
+    const catNorm = normalizeCategory(m.category);
     const tag = m.type==="ingreso"
       ? `<span class="mv-tag" style="background:var(--good)">Ingreso</span>`
-      : `<span class="mv-tag" style="background:${catColor(m.category)}">${m.category||"Sin categoría"}</span>`;
+      : `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
     row.innerHTML = `
       <div class="mv-left">
         <div class="mv-concept">${m.concept || "(sin concepto)"}</div>
@@ -574,9 +674,11 @@ function renderMovList(){
       </div>
       <div class="mv-right">
         <div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>
+        <button class="mv-edit" data-id="${m.id}">✎</button>
         <button class="mv-del" data-id="${m.id}">✕</button>
       </div>
     `;
+    row.querySelector(".mv-edit").addEventListener("click", ()=> openEditSheet(m));
     row.querySelector(".mv-del").addEventListener("click", ()=>{
       if (confirm("¿Eliminar este movimiento?")) db.ref("movements/"+m.id).remove();
     });
@@ -600,6 +702,7 @@ function populateCategorySelect(){
   });
 }
 let addType = "ingreso";
+let editingId = null; // null = creando nuevo; si tiene valor, estamos editando ese movimiento
 $("#typeIngresoBtn").addEventListener("click", ()=> setAddType("ingreso"));
 $("#typeGastoBtn").addEventListener("click", ()=> setAddType("gasto"));
 function setAddType(t){
@@ -609,12 +712,30 @@ function setAddType(t){
   $("#categoryField").style.display = t==="gasto" ? "block" : "none";
 }
 $("#fabAdd").addEventListener("click", ()=>{
+  editingId = null;
+  $("#sheetTitle").textContent = "Nuevo movimiento";
+  $("#deleteMovBtn").style.display = "none";
   $("#mvConcept").value = "";
   $("#mvAmount").value = "";
   $("#mvDate").value = todayIsoDate();
   setAddType("ingreso");
   $("#addSheetBackdrop").classList.add("open");
 });
+
+function openEditSheet(m){
+  editingId = m.id;
+  $("#sheetTitle").textContent = "Editar movimiento";
+  $("#deleteMovBtn").style.display = "block";
+  $("#mvConcept").value = m.concept || "";
+  $("#mvAmount").value = m.amount || "";
+  $("#mvDate").value = m.date || todayIsoDate();
+  setAddType(m.type === "gasto" ? "gasto" : "ingreso");
+  if (m.type === "gasto"){
+    $("#mvCategory").value = normalizeCategory(m.category) || CATEGORIES[0].key;
+  }
+  $("#addSheetBackdrop").classList.add("open");
+}
+
 $("#closeAddSheet").addEventListener("click", ()=> $("#addSheetBackdrop").classList.remove("open"));
 $("#addSheetBackdrop").addEventListener("click", e=>{ if (e.target.id==="addSheetBackdrop") $("#addSheetBackdrop").classList.remove("open"); });
 
@@ -628,12 +749,24 @@ $("#saveMovBtn").addEventListener("click", ()=>{
     category: addType === "gasto" ? $("#mvCategory").value : null,
     concept, amount, date,
     addedBy: currentUser,
-    source: "manual",
+    source: editingId ? "manual-editado" : "manual",
     createdAt: Date.now()
   };
-  db.ref("movements").push(data);
   if (addType === "gasto") learnKeyword(concept, data.category);
+  if (editingId){
+    db.ref("movements/"+editingId).update(data);
+  } else {
+    db.ref("movements").push(data);
+  }
   $("#addSheetBackdrop").classList.remove("open");
+});
+
+$("#deleteMovBtn").addEventListener("click", ()=>{
+  if (!editingId) return;
+  if (confirm("¿Eliminar este movimiento?")){
+    db.ref("movements/"+editingId).remove();
+    $("#addSheetBackdrop").classList.remove("open");
+  }
 });
 
 /* =========================================================
@@ -681,7 +814,7 @@ async function extractMovementsFromPdf(file){
     });
   }
   const dateRe = /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/;
-  const amountRe = /(-?\d{1,3}(?:[.\s]\d{3})*,\d{2})\s*€?/g;
+  const amountRe = /(?<![\d.,])(-?\d{1,3}(?:[.\s]\d{3})*,\d{2})(?!\d)\s*€?/g;
 
   const rows = [];
   lines.forEach(line=>{
@@ -706,7 +839,8 @@ async function extractMovementsFromPdf(file){
     const type = rawAmount < 0 ? "gasto" : "ingreso";
     const absAmount = Math.abs(rawAmount);
     const category = type === "gasto" ? suggestCategory(concept) : "";
-    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: true });
+    const flaggedDuplicate = isLikelyDuplicateLine(concept);
+    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate });
   });
   return rows;
 }
