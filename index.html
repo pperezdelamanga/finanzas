@@ -29,6 +29,7 @@
     --c-ocio:#C4574B;
     --c-ahorro:#4A7C6F;
     --c-otras:#9C8AA5;
+    --c-personal:#2F8F8A;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -60,28 +61,31 @@
 
   /* ---------- header ---------- */
   header{
-    background:var(--ink); color:var(--paper); padding:16px 18px 14px;
+    background:var(--ink); color:var(--paper);
+    padding:calc(12px + env(safe-area-inset-top)) 18px 14px;
     position:sticky; top:0; z-index:20;
   }
-  .head-row{display:flex; align-items:center; justify-content:space-between;}
-  .head-row h1{font-size:19px; color:#fff;}
-  .who{font-size:12px; opacity:.75; cursor:pointer;}
-  .month-nav{display:flex; align-items:center; justify-content:center; gap:18px; margin-top:12px;}
+  .head-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .head-row h1{font-size:17px; color:#fff; white-space:nowrap; flex:none;}
+  .head-right{display:flex; align-items:center; gap:10px; min-width:0;}
+  .who{font-size:11px; opacity:.75; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;}
+  .gear-btn{background:rgba(255,255,255,.12); border:none; color:#fff; width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; flex:none;}
+  .month-nav{display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:14px;}
   .month-nav button{
-    background:rgba(255,255,255,.12); border:none; color:#fff; width:34px; height:34px;
-    border-radius:50%; font-size:18px; cursor:pointer;
+    background:var(--paper-card); border:1px solid var(--line); color:var(--ink); width:32px; height:32px;
+    border-radius:50%; font-size:17px; cursor:pointer; flex:none;
   }
-  .month-label{font-family:'Fraunces',serif; font-size:17px; min-width:150px; text-align:center; text-transform:capitalize;}
+  .month-label{font-family:'Fraunces',serif; font-size:16px; min-width:140px; text-align:center; text-transform:capitalize;}
 
   main{max-width:640px; margin:0 auto; padding:16px;}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
 
   /* ---------- summary cards ---------- */
-  .totals-row{display:flex; gap:10px; margin-bottom:18px;}
-  .total-card{flex:1; background:var(--paper-card); border-radius:14px; padding:14px; border:1px solid var(--line);}
-  .total-card .label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft);}
-  .total-card .value{font-size:20px; margin-top:4px;}
+  .totals-row{display:flex; gap:8px; margin-bottom:18px;}
+  .total-card{flex:1; min-width:0; background:var(--paper-card); border-radius:14px; padding:11px 10px; border:1px solid var(--line);}
+  .total-card .label{font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .total-card .value{font-size:clamp(13px, 4.4vw, 18px); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .total-card.balance .value.pos{color:var(--good);}
   .total-card.balance .value.neg{color:var(--bad);}
 
@@ -89,14 +93,18 @@
     background:var(--paper-card); border-radius:14px; padding:14px 16px; margin-bottom:10px;
     border:1px solid var(--line); border-left:6px solid var(--cc);
   }
-  .cat-card .row1{display:flex; justify-content:space-between; align-items:baseline;}
+  .cat-card .row1{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;}
   .cat-card .cat-name{font-weight:600; font-size:15px;}
-  .cat-card .cat-pct{font-size:11px; color:var(--text-soft);}
-  .cat-card .amounts{font-size:13px; color:var(--text-soft); margin-top:2px;}
+  .cat-card .cat-pct{font-size:11px; color:var(--text-soft); white-space:nowrap;}
+  .cat-card .amounts{font-size:13px; color:var(--text-soft); margin-top:2px; word-spacing:normal;}
   .cat-card .amounts .spent{font-weight:700; color:var(--text);}
   .bar-track{height:9px; background:var(--paper); border-radius:5px; margin-top:8px; overflow:hidden; border:1px solid var(--line);}
   .bar-fill{height:100%; border-radius:5px; background:var(--cc);}
   .bar-fill.over{background:var(--bad);}
+  .personal-note{
+    font-size:12px; color:var(--text-soft); background:var(--paper-card); border:1px solid var(--line);
+    border-radius:10px; padding:9px 12px; margin-bottom:12px;
+  }
 
   /* ---------- movements list ---------- */
   .mv-item{
@@ -142,6 +150,12 @@
   }
   .btn-main:disabled{opacity:.4;}
   .btn-ghost{background:none; border:1px solid var(--line); color:var(--text); width:100%; padding:12px; border-radius:10px; font-size:14px; cursor:pointer;}
+  .pct-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .pct-row:last-child{border-bottom:none;}
+  .pct-row .pct-name{font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;}
+  .pct-row .swatch{width:10px; height:10px; border-radius:50%; flex:none;}
+  .pct-row .pct-input-wrap{display:flex; align-items:center; gap:4px; flex:none;}
+  .pct-row input{width:58px; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--paper); font-size:14px; text-align:right; font-family:inherit;}
 
   /* ---------- import pdf ---------- */
   .drop{
@@ -213,18 +227,21 @@
   <header>
     <div class="head-row">
       <h1>Cuentas de casa</h1>
-      <span class="who" id="whoLabel">Patricia · salir</span>
-    </div>
-    <div class="month-nav">
-      <button id="prevMonth">‹</button>
-      <div class="month-label" id="monthLabel">enero 2026</div>
-      <button id="nextMonth">›</button>
+      <div class="head-right">
+        <button class="gear-btn" id="settingsBtn" title="Ajustar porcentajes">⚙️</button>
+        <span class="who" id="whoLabel">Patricia · salir</span>
+      </div>
     </div>
   </header>
 
   <main>
     <!-- RESUMEN -->
     <section class="tab-panel active" id="tab-resumen">
+      <div class="month-nav">
+        <button id="prevMonth">‹</button>
+        <div class="month-label" id="monthLabel">enero 2026</div>
+        <button id="nextMonth">›</button>
+      </div>
       <div class="totals-row">
         <div class="total-card">
           <div class="label">Ingresos</div>
@@ -239,6 +256,7 @@
           <div class="value num" id="sumBalance">0 €</div>
         </div>
       </div>
+      <div id="personalNote" class="personal-note" style="display:none;"></div>
       <div id="catCards"></div>
     </section>
 
@@ -263,6 +281,7 @@
           <div class="value num" id="sumBalanceYear">0 €</div>
         </div>
       </div>
+      <div id="personalNoteYear" class="personal-note" style="display:none;"></div>
       <div id="catCardsYear"></div>
     </section>
 
@@ -309,6 +328,12 @@
       <label>Categoría</label>
       <select id="mvCategory"></select>
     </div>
+    <div class="field" id="personalSplitField" style="display:none;">
+      <label style="display:flex; align-items:center; gap:9px; cursor:pointer; margin-bottom:0;">
+        <input type="checkbox" id="mvPersonalSplit" style="width:18px; height:18px; flex:none;">
+        <span id="personalSplitLabel">Derivar automáticamente el 10% a "Personal"</span>
+      </label>
+    </div>
     <div class="field">
       <label>Concepto</label>
       <input type="text" id="mvConcept" placeholder="Ej. Compra semanal, nómina, efectivo...">
@@ -323,6 +348,20 @@
     </div>
     <button class="btn-main" id="saveMovBtn">Guardar</button>
     <button class="btn-ghost" id="deleteMovBtn" style="display:none; margin-top:10px; color:var(--bad); border-color:var(--bad);">Eliminar movimiento</button>
+  </div>
+</div>
+
+<!-- SETTINGS SHEET: porcentajes de previsión por categoría -->
+<div class="sheet-backdrop" id="settingsSheetBackdrop">
+  <div class="sheet">
+    <button class="sheet-close" id="closeSettingsSheet">✕</button>
+    <h3>Ajustar porcentajes</h3>
+    <p style="font-size:12px; color:var(--text-soft); margin:6px 0 14px;">
+      Se aplican a los ingresos del mes/año para calcular la previsión de cada categoría. Los cambios se guardan para ti y para Rubén.
+    </p>
+    <div id="settingsFields"></div>
+    <div id="settingsSum" style="font-size:12px; color:var(--text-soft); margin:8px 0 14px;"></div>
+    <button class="btn-main" id="saveSettingsBtn">Guardar porcentajes</button>
   </div>
 </div>
 
@@ -358,14 +397,37 @@ const ALLOWED_EMAILS = [
    CATEGORÍAS Y PRESUPUESTO
    ========================================================= */
 const CATEGORIES = [
-  { key: "Vivienda",              pct: 0.30,  color: "var(--c-vivienda)" },
-  { key: "Alimentación/Farmacia", pct: 0.15,  color: "var(--c-alimentacion)" },
-  { key: "Gastos hijos",          pct: 0.15,  color: "var(--c-hijos)" },
-  { key: "Transporte",            pct: 0.125, color: "var(--c-transporte)" },
-  { key: "Ocio",                  pct: 0.125, color: "var(--c-ocio)" },
-  { key: "Ahorro/inversión",      pct: 0.10,  color: "var(--c-ahorro)" },
-  { key: "Otras compras",         pct: 0.05,  color: "var(--c-otras)" },
+  { key: "Vivienda",              defaultPct: 0.30,  color: "var(--c-vivienda)" },
+  { key: "Alimentación/Farmacia", defaultPct: 0.15,  color: "var(--c-alimentacion)" },
+  { key: "Gastos hijos",          defaultPct: 0.15,  color: "var(--c-hijos)" },
+  { key: "Transporte",            defaultPct: 0.125, color: "var(--c-transporte)" },
+  { key: "Ocio",                  defaultPct: 0.125, color: "var(--c-ocio)" },
+  { key: "Ahorro/inversión",      defaultPct: 0.10,  color: "var(--c-ahorro)" },
+  { key: "Otras compras",         defaultPct: 0.05,  color: "var(--c-otras)" },
+  { key: "Personal",              defaultPct: 0.10,  color: "var(--c-personal)", special: "personal" },
 ];
+
+// Porcentajes editables desde el icono de ajustes (⚙️), compartidos entre Patricia y Rubén vía Firebase.
+// Si aún no existen en la base de datos, se crean con los valores por defecto de arriba.
+let categoryPercents = {};
+CATEGORIES.forEach(c => categoryPercents[c.key] = c.defaultPct);
+db.ref("settings/categoryPercents").on("value", snap=>{
+  const val = snap.val();
+  if (val){
+    categoryPercents = val;
+  } else {
+    const defaults = {};
+    CATEGORIES.forEach(c=> defaults[c.key] = c.defaultPct);
+    db.ref("settings/categoryPercents").set(defaults);
+    categoryPercents = defaults;
+  }
+  if (typeof renderAll === "function") renderAll();
+  if (typeof refreshSettingsSheetIfOpen === "function") refreshSettingsSheetIfOpen();
+});
+function getPct(key){
+  const v = categoryPercents[key];
+  return (typeof v === "number") ? v : (CATEGORIES.find(c=>c.key===key)?.defaultPct || 0);
+}
 
 // Categorías antiguas ya guardadas en Firebase con el nombre anterior:
 // se tratan como equivalentes a la nueva para que no se pierdan de las tarjetas/gráficas.
@@ -450,6 +512,7 @@ let pendingImportRows = [];
 
 const $ = sel => document.querySelector(sel);
 const eur = n => (n||0).toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
+const eurRound = n => Math.round(n||0).toLocaleString("es-ES") + " €";
 function pad2(n){ return String(n).padStart(2, "0"); }
 function todayIsoDate(){
   const d = new Date();
@@ -492,7 +555,8 @@ auth.onAuthStateChanged(user=>{
     auth.signOut();
     return;
   }
-  currentUser = user.displayName || user.email;
+  const fullName = user.displayName || user.email;
+  currentUser = fullName.split(" ")[0];
   currentUserEmail = user.email;
   startApp();
 });
@@ -572,25 +636,38 @@ function renderAll(){
 
 /* ---------- tarjetas de categoría (compartido entre resumen mensual y anual) ---------- */
 function renderCategoryCards(wrapEl, movs, ingresosTotal){
+  const personalPct = getPct("Personal");
+  const personalAmount = movs
+    .filter(m=>m.type==="ingreso" && m.personalSplit)
+    .reduce((s,m)=> s + Number(m.amount||0) * personalPct, 0);
+  const baseParaReparto = Math.max(0, ingresosTotal - personalAmount);
+
   wrapEl.innerHTML = "";
   CATEGORIES.forEach(cat=>{
     const spent = movs.filter(m=>m.type==="gasto" && normalizeCategory(m.category)===cat.key).reduce((s,m)=>s+Number(m.amount||0),0);
-    const forecast = ingresosTotal * cat.pct;
+    const isPersonal = cat.special === "personal";
+    const pct = getPct(cat.key);
+    const forecast = isPersonal ? personalAmount : baseParaReparto * pct;
     const pctUsed = forecast > 0 ? Math.min(100, (spent/forecast)*100) : (spent>0?100:0);
     const over = forecast > 0 && spent > forecast;
+    const pctLabel = isPersonal
+      ? `${Math.round(pct*1000)/10}% de ingresos marcados`
+      : `${Math.round(pct*1000)/10}% del resto`;
     const div = document.createElement("div");
     div.className = "cat-card";
     div.style.setProperty("--cc", cat.color);
     div.innerHTML = `
       <div class="row1">
         <span class="cat-name">${cat.key}</span>
-        <span class="cat-pct">${Math.round(cat.pct*1000)/10}% de ingresos</span>
+        <span class="cat-pct">${pctLabel}</span>
       </div>
       <div class="amounts"><span class="spent num">${eur(spent)}</span> de <span class="num">${eur(forecast)}</span> previstos</div>
       <div class="bar-track"><div class="bar-fill ${over?'over':''}" style="width:${pctUsed}%"></div></div>
     `;
     wrapEl.appendChild(div);
   });
+
+  return personalAmount;
 }
 
 /* ---------- resumen mensual ---------- */
@@ -600,13 +677,20 @@ function renderResumen(){
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const balance = ingresos - gastos;
 
-  $("#sumIngresos").textContent = eur(ingresos);
-  $("#sumGastos").textContent = eur(gastos);
+  $("#sumIngresos").textContent = eurRound(ingresos);
+  $("#sumGastos").textContent = eurRound(gastos);
   const balEl = $("#sumBalance");
-  balEl.textContent = eur(balance);
+  balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
-  renderCategoryCards($("#catCards"), movs, ingresos);
+  const personalAmount = renderCategoryCards($("#catCards"), movs, ingresos);
+  const note = $("#personalNote");
+  if (personalAmount > 0){
+    note.style.display = "block";
+    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este mes. El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
+  } else {
+    note.style.display = "none";
+  }
 }
 
 /* ---------- resumen anual ---------- */
@@ -616,13 +700,20 @@ function renderAnual(){
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const balance = ingresos - gastos;
 
-  $("#sumIngresosYear").textContent = eur(ingresos);
-  $("#sumGastosYear").textContent = eur(gastos);
+  $("#sumIngresosYear").textContent = eurRound(ingresos);
+  $("#sumGastosYear").textContent = eurRound(gastos);
   const balEl = $("#sumBalanceYear");
-  balEl.textContent = eur(balance);
+  balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
-  renderCategoryCards($("#catCardsYear"), movs, ingresos);
+  const personalAmount = renderCategoryCards($("#catCardsYear"), movs, ingresos);
+  const note = $("#personalNoteYear");
+  if (personalAmount > 0){
+    note.style.display = "block";
+    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este año. El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
+  } else {
+    note.style.display = "none";
+  }
 }
 
 /* ---------- movimientos list ---------- */
@@ -710,6 +801,10 @@ function setAddType(t){
   $("#typeIngresoBtn").classList.toggle("active", t==="ingreso");
   $("#typeGastoBtn").classList.toggle("active", t==="gasto");
   $("#categoryField").style.display = t==="gasto" ? "block" : "none";
+  $("#personalSplitField").style.display = t==="ingreso" ? "block" : "none";
+  if (t === "ingreso"){
+    $("#personalSplitLabel").textContent = `Derivar automáticamente el ${Math.round(getPct("Personal")*1000)/10}% a "Personal"`;
+  }
 }
 $("#fabAdd").addEventListener("click", ()=>{
   editingId = null;
@@ -718,6 +813,7 @@ $("#fabAdd").addEventListener("click", ()=>{
   $("#mvConcept").value = "";
   $("#mvAmount").value = "";
   $("#mvDate").value = todayIsoDate();
+  $("#mvPersonalSplit").checked = false;
   setAddType("ingreso");
   $("#addSheetBackdrop").classList.add("open");
 });
@@ -729,6 +825,7 @@ function openEditSheet(m){
   $("#mvConcept").value = m.concept || "";
   $("#mvAmount").value = m.amount || "";
   $("#mvDate").value = m.date || todayIsoDate();
+  $("#mvPersonalSplit").checked = !!m.personalSplit;
   setAddType(m.type === "gasto" ? "gasto" : "ingreso");
   if (m.type === "gasto"){
     $("#mvCategory").value = normalizeCategory(m.category) || CATEGORIES[0].key;
@@ -747,6 +844,7 @@ $("#saveMovBtn").addEventListener("click", ()=>{
   const data = {
     type: addType,
     category: addType === "gasto" ? $("#mvCategory").value : null,
+    personalSplit: addType === "ingreso" ? $("#mvPersonalSplit").checked : false,
     concept, amount, date,
     addedBy: currentUser,
     source: editingId ? "manual-editado" : "manual",
@@ -767,6 +865,69 @@ $("#deleteMovBtn").addEventListener("click", ()=>{
     db.ref("movements/"+editingId).remove();
     $("#addSheetBackdrop").classList.remove("open");
   }
+});
+
+/* =========================================================
+   AJUSTES: porcentajes editables por categoría
+   ========================================================= */
+let settingsSheetOpen = false;
+
+function populateSettingsSheet(){
+  const wrap = $("#settingsFields");
+  wrap.innerHTML = "";
+  CATEGORIES.forEach(cat=>{
+    const pctValue = Math.round(getPct(cat.key) * 1000) / 10;
+    const row = document.createElement("div");
+    row.className = "pct-row";
+    const helpText = cat.special === "personal" ? "% de los ingresos marcados" : "% del resto de ingresos";
+    row.innerHTML = `
+      <span class="pct-name"><span class="swatch" style="background:${cat.key === 'Personal' ? 'var(--c-personal)' : cat.color}"></span>${cat.key}<br></span>
+      <span class="pct-input-wrap">
+        <input type="number" step="0.5" min="0" max="100" value="${pctValue}" data-key="${cat.key}" class="pct-input">
+        <span style="font-size:13px; color:var(--text-soft);">%</span>
+      </span>
+    `;
+    wrap.appendChild(row);
+  });
+  updateSettingsSum();
+  wrap.querySelectorAll(".pct-input").forEach(el=> el.addEventListener("input", updateSettingsSum));
+}
+
+function updateSettingsSum(){
+  let sum = 0;
+  document.querySelectorAll(".pct-input").forEach(el=>{
+    if (el.dataset.key !== "Personal") sum += parseFloat(el.value) || 0;
+  });
+  const sumEl = $("#settingsSum");
+  const rounded = Math.round(sum * 10) / 10;
+  sumEl.textContent = `Suma de las categorías de reparto (todas menos Personal): ${rounded}%` + (Math.abs(rounded-100) > 0.05 ? " — no suma 100%, pero puedes guardarlo igual si es intencionado." : " ✓");
+  sumEl.style.color = Math.abs(rounded-100) > 0.05 ? "var(--warn)" : "var(--good)";
+}
+
+function refreshSettingsSheetIfOpen(){
+  if (settingsSheetOpen) populateSettingsSheet();
+}
+
+$("#settingsBtn").addEventListener("click", ()=>{
+  settingsSheetOpen = true;
+  populateSettingsSheet();
+  $("#settingsSheetBackdrop").classList.add("open");
+});
+$("#closeSettingsSheet").addEventListener("click", ()=>{
+  settingsSheetOpen = false;
+  $("#settingsSheetBackdrop").classList.remove("open");
+});
+$("#settingsSheetBackdrop").addEventListener("click", e=>{
+  if (e.target.id==="settingsSheetBackdrop"){ settingsSheetOpen = false; $("#settingsSheetBackdrop").classList.remove("open"); }
+});
+$("#saveSettingsBtn").addEventListener("click", ()=>{
+  const updated = {};
+  document.querySelectorAll(".pct-input").forEach(el=>{
+    updated[el.dataset.key] = (parseFloat(el.value) || 0) / 100;
+  });
+  db.ref("settings/categoryPercents").set(updated);
+  settingsSheetOpen = false;
+  $("#settingsSheetBackdrop").classList.remove("open");
 });
 
 /* =========================================================
@@ -840,7 +1001,7 @@ async function extractMovementsFromPdf(file){
     const absAmount = Math.abs(rawAmount);
     const category = type === "gasto" ? suggestCategory(concept) : "";
     const flaggedDuplicate = isLikelyDuplicateLine(concept);
-    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate });
+    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate, personalSplit: false });
   });
   return rows;
 }
@@ -874,6 +1035,11 @@ function renderReviewList(){
           ${CATEGORIES.map(c=>`<option value="${c.key}" ${row.type==='gasto'&&row.category===c.key?'selected':''}>${c.key}</option>`).join("")}
         </select>
       </div>
+      ${row.type === "ingreso" ? `
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-soft); margin-top:7px;">
+        <input type="checkbox" class="rv-personal" data-idx="${idx}" ${row.personalSplit?"checked":""} style="width:16px;height:16px;">
+        Derivar ${Math.round(getPct("Personal")*1000)/10}% a "Personal"
+      </label>` : ""}
     `;
     wrap.appendChild(div);
   });
@@ -891,11 +1057,15 @@ function renderReviewList(){
   wrap.querySelectorAll(".rv-amount").forEach(el=> el.addEventListener("input", e=>{
     pendingImportRows[e.target.dataset.idx].amount = parseFloat(e.target.value)||0;
   }));
+  wrap.querySelectorAll(".rv-personal").forEach(el=> el.addEventListener("change", e=>{
+    pendingImportRows[e.target.dataset.idx].personalSplit = e.target.checked;
+  }));
   wrap.querySelectorAll(".rv-type-cat").forEach(el=> el.addEventListener("change", e=>{
     const idx = e.target.dataset.idx;
     const val = e.target.value;
     if (val === "ingreso"){ pendingImportRows[idx].type = "ingreso"; pendingImportRows[idx].category = ""; }
     else { pendingImportRows[idx].type = "gasto"; pendingImportRows[idx].category = val; }
+    renderReviewList();
   }));
 }
 function escapeHtml(s){
@@ -909,6 +1079,7 @@ $("#confirmImportBtn").addEventListener("click", ()=>{
     const data = {
       type: r.type,
       category: r.type==="gasto" ? r.category : null,
+      personalSplit: r.type==="ingreso" ? !!r.personalSplit : false,
       concept: r.concept,
       amount: r.amount,
       date: r.date,
