@@ -119,14 +119,14 @@
   .mv-concept{font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:190px;}
   .mv-meta{font-size:11px; color:var(--text-soft);}
   .mv-tag{display:inline-block; font-size:10px; padding:1px 7px; border-radius:20px; color:#fff; margin-right:5px;}
-  .mv-right{display:flex; align-items:center; gap:10px;}
-  .mv-amount{font-size:15px; font-weight:700;}
+  .mv-right{display:flex; align-items:center; gap:8px; flex:none;}
+  .mv-amount{font-size:14px; font-weight:700; white-space:nowrap; flex:none;}
   .mv-amount.ingreso{color:var(--good);}
   .mv-amount.gasto{color:var(--text);}
   .mv-del{background:none; border:none; color:var(--text-soft); font-size:17px; cursor:pointer; padding:4px;}
   .mv-edit{background:none; border:none; color:var(--text-soft); font-size:15px; cursor:pointer; padding:4px;}
 
-  .filter-row{display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px;}
+  .filter-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
   .chip{
     flex:none; padding:6px 12px; border-radius:20px; border:1px solid var(--line);
     background:var(--paper-card); font-size:12px; cursor:pointer; white-space:nowrap;
@@ -194,7 +194,7 @@
   nav.tabbar button.active{color:var(--ink); font-weight:700;}
 
   .fab{
-    position:fixed; right:18px; bottom:84px; width:54px; height:54px; border-radius:50%;
+    position:fixed; right:18px; bottom:calc(78px + env(safe-area-inset-bottom)); width:54px; height:54px; border-radius:50%;
     background:var(--ink); color:#fff; border:none; font-size:26px; cursor:pointer; z-index:25;
     box-shadow:0 6px 16px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center;
   }
@@ -316,8 +316,8 @@
   <button class="fab" id="fabAdd">+</button>
 
   <nav class="tabbar">
-    <button class="tab-btn active" data-tab="resumen"><span class="ic">📊</span>Mes</button>
     <button class="tab-btn" data-tab="anual"><span class="ic">📅</span>Año</button>
+    <button class="tab-btn active" data-tab="resumen"><span class="ic">📊</span>Mes</button>
     <button class="tab-btn" data-tab="movs"><span class="ic">📋</span>Movimientos</button>
     <button class="tab-btn" data-tab="import"><span class="ic">📥</span>Importar PDF</button>
   </nav>
@@ -519,8 +519,8 @@ let currentFilter = "todos";
 let pendingImportRows = [];
 
 const $ = sel => document.querySelector(sel);
-const eur = n => (n||0).toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
-const eurRound = n => Math.round(n||0).toLocaleString("es-ES") + " €";
+const eur = n => (n||0).toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2}) + "\u00A0€";
+const eurRound = n => Math.round(n||0).toLocaleString("es-ES") + "\u00A0€";
 function pad2(n){ return String(n).padStart(2, "0"); }
 function todayIsoDate(){
   const d = new Date();
