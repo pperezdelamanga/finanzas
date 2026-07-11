@@ -1,4 +1,6 @@
-const CACHE_NAME = "cuentas-casa-v1";
+// Cambia este número cada vez que subas cambios importantes: fuerza a los móviles
+// a darse cuenta de que hay una versión nueva del service worker y a limpiar la caché vieja.
+const CACHE_NAME = "cuentas-casa-v2";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -22,21 +24,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Red primero, caché como respaldo solo si no hay conexión.
+// Así cualquier actualización que subas a GitHub se ve en cuanto el móvil tiene internet,
+// y la app solo tira de la copia guardada cuando está realmente sin cobertura/wifi.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  // Never cache Firebase or pdf.js CDN calls — always go to network for those
+  // Nunca cachear llamadas a Firebase o a la CDN de pdf.js — siempre red para esas
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).then((resp) => {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return resp;
-        }).catch(() => cached)
-      );
-    })
+    fetch(event.request)
+      .then((resp) => {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return resp;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
