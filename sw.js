@@ -1,6 +1,6 @@
 // Cambia este número cada vez que subas cambios importantes: fuerza a los móviles
 // a darse cuenta de que hay una versión nueva del service worker y a limpiar la caché vieja.
-const CACHE_NAME = "cuentas-casa-v3";
+const CACHE_NAME = "cuentas-casa-v4";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
