@@ -9,6 +9,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#1F2E3D;
@@ -62,7 +65,7 @@
   /* ---------- header ---------- */
   header{
     background:var(--ink); color:var(--paper);
-    padding:calc(12px + env(safe-area-inset-top)) 18px 14px;
+    padding:max(32px, calc(14px + env(safe-area-inset-top))) 18px 14px;
     position:sticky; top:0; z-index:20;
   }
   .head-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
@@ -287,6 +290,11 @@
 
     <!-- MOVIMIENTOS -->
     <section class="tab-panel" id="tab-movs">
+      <div class="month-nav">
+        <button id="prevMonth2">‹</button>
+        <div class="month-label" id="monthLabel2">enero 2026</div>
+        <button id="nextMonth2">›</button>
+      </div>
       <div class="filter-row" id="filterRow"></div>
       <div id="movList"></div>
     </section>
@@ -576,10 +584,14 @@ function startApp(){
 function renderMonthLabel(){
   const [y,m] = currentMonth.split("-").map(Number);
   const d = new Date(y, m-1, 1);
-  $("#monthLabel").textContent = d.toLocaleDateString("es-ES", {month:"long", year:"numeric"});
+  const label = d.toLocaleDateString("es-ES", {month:"long", year:"numeric"});
+  $("#monthLabel").textContent = label;
+  $("#monthLabel2").textContent = label;
 }
 $("#prevMonth").addEventListener("click", ()=>{ shiftMonth(-1); });
 $("#nextMonth").addEventListener("click", ()=>{ shiftMonth(1); });
+$("#prevMonth2").addEventListener("click", ()=>{ shiftMonth(-1); });
+$("#nextMonth2").addEventListener("click", ()=>{ shiftMonth(1); });
 function shiftMonth(delta){
   let [y,m] = currentMonth.split("-").map(Number);
   m += delta;
@@ -741,38 +753,77 @@ function catColor(cat){
 }
 
 function renderMovList(){
-  let movs = movementsOfMonth();
-  if (currentFilter === "ingreso") movs = movs.filter(m=>m.type==="ingreso");
-  else if (currentFilter !== "todos") movs = movs.filter(m=>normalizeCategory(m.category)===currentFilter);
+  const monthMovs = movementsOfMonth();
+  let displayList;
+
+  if (currentFilter === "Personal"){
+    const personalPct = getPct("Personal");
+    const realPersonalGastos = monthMovs.filter(m=>m.type==="gasto" && normalizeCategory(m.category)==="Personal");
+    const derived = monthMovs.filter(m=>m.type==="ingreso" && m.personalSplit).map(m=>({
+      id: m.id,
+      type: "ingreso",
+      category: "Personal",
+      concept: `10% derivado de "${m.concept || 'ingreso'}"`,
+      amount: Number(m.amount||0) * personalPct,
+      date: m.date,
+      addedBy: m.addedBy,
+      source: "derivado",
+      _derived: true,
+      _originalId: m.id,
+    }));
+    displayList = [...realPersonalGastos, ...derived].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  } else if (currentFilter === "ingreso") {
+    displayList = monthMovs.filter(m=>m.type==="ingreso");
+  } else if (currentFilter === "todos") {
+    displayList = monthMovs;
+  } else {
+    displayList = monthMovs.filter(m=>normalizeCategory(m.category)===currentFilter);
+  }
 
   const list = $("#movList");
   list.innerHTML = "";
-  if (movs.length === 0){
+  if (displayList.length === 0){
     list.innerHTML = `<div class="empty">Sin movimientos este mes en este filtro.</div>`;
     return;
   }
-  movs.forEach(m=>{
+  displayList.forEach(m=>{
     const row = document.createElement("div");
     row.className = "mv-item";
     const catNorm = normalizeCategory(m.category);
-    const tag = m.type==="ingreso"
-      ? `<span class="mv-tag" style="background:var(--good)">Ingreso</span>`
-      : `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
+    let tag;
+    if (m._derived){
+      tag = `<span class="mv-tag" style="background:var(--c-personal)">Derivado</span>`;
+    } else if (m.type==="ingreso"){
+      tag = `<span class="mv-tag" style="background:var(--good)">Ingreso</span>`;
+    } else {
+      tag = `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
+    }
+    const amountDisplay = m._derived
+      ? `<div class="mv-amount" style="color:var(--c-personal)">→ ${eur(m.amount)}</div>`
+      : `<div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>`;
     row.innerHTML = `
       <div class="mv-left">
         <div class="mv-concept">${m.concept || "(sin concepto)"}</div>
         <div class="mv-meta">${tag}${formatDate(m.date)} · ${m.addedBy||""}${m.source==='pdf'?' · PDF':''}</div>
       </div>
       <div class="mv-right">
-        <div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>
-        <button class="mv-edit" data-id="${m.id}">✎</button>
-        <button class="mv-del" data-id="${m.id}">✕</button>
+        ${amountDisplay}
+        ${m._derived
+          ? `<button class="mv-edit" data-id="${m._originalId}" title="Ver ingreso original">✎</button>`
+          : `<button class="mv-edit" data-id="${m.id}">✎</button><button class="mv-del" data-id="${m.id}">✕</button>`}
       </div>
     `;
-    row.querySelector(".mv-edit").addEventListener("click", ()=> openEditSheet(m));
-    row.querySelector(".mv-del").addEventListener("click", ()=>{
-      if (confirm("¿Eliminar este movimiento?")) db.ref("movements/"+m.id).remove();
-    });
+    if (m._derived){
+      row.querySelector(".mv-edit").addEventListener("click", ()=>{
+        const orig = allMovements[m._originalId];
+        if (orig) openEditSheet({id: m._originalId, ...orig});
+      });
+    } else {
+      row.querySelector(".mv-edit").addEventListener("click", ()=> openEditSheet(m));
+      row.querySelector(".mv-del").addEventListener("click", ()=>{
+        if (confirm("¿Eliminar este movimiento?")) db.ref("movements/"+m.id).remove();
+      });
+    }
     list.appendChild(row);
   });
 }
