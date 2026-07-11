@@ -406,13 +406,13 @@ const ALLOWED_EMAILS = [
    ========================================================= */
 const CATEGORIES = [
   { key: "Vivienda",              defaultPct: 0.30,  color: "var(--c-vivienda)" },
+  { key: "Personal",              defaultPct: 0.10,  color: "var(--c-personal)", special: "personal" },
   { key: "Alimentación/Farmacia", defaultPct: 0.15,  color: "var(--c-alimentacion)" },
   { key: "Gastos hijos",          defaultPct: 0.15,  color: "var(--c-hijos)" },
   { key: "Transporte",            defaultPct: 0.125, color: "var(--c-transporte)" },
   { key: "Ocio",                  defaultPct: 0.125, color: "var(--c-ocio)" },
   { key: "Ahorro/inversión",      defaultPct: 0.10,  color: "var(--c-ahorro)" },
   { key: "Otras compras",         defaultPct: 0.05,  color: "var(--c-otras)" },
-  { key: "Personal",              defaultPct: 0.10,  color: "var(--c-personal)", special: "personal" },
 ];
 
 // Porcentajes editables desde el icono de ajustes (⚙️), compartidos entre Patricia y Rubén vía Firebase.
@@ -624,7 +624,52 @@ function listenMovements(){
   db.ref("movements").on("value", snap=>{
     allMovements = snap.val() || {};
     renderAll();
+    reconcilePersonalDerivations();
   });
+}
+
+/* ---------- derivaciones a Personal como movimientos reales ----------
+   Por cada ingreso marcado con personalSplit, mantiene un movimiento espejo
+   (id = "deriv_" + id del ingreso original) con el 10% correspondiente, para que
+   aparezca como un movimiento más al filtrar por la categoría Personal.
+   Se ejecuta tras cada sincronización, así que cubre tanto las derivaciones nuevas
+   como las que ya existían antes de este cambio, y se corrige sola si cambia el % o el importe. */
+function buildDerivConcept(m, pct){
+  return `${Math.round(pct*1000)/10}% derivado de "${m.concept || 'ingreso'}"`;
+}
+function reconcilePersonalDerivations(){
+  const pct = getPct("Personal");
+  Object.entries(allMovements).forEach(([id, m])=>{
+    if (!m || m.source === "derivado") return; // no reconciliar las propias derivaciones
+    const key = "deriv_" + id;
+    const existing = allMovements[key];
+    if (m.type === "ingreso" && m.personalSplit){
+      const expectedAmount = Math.round(Number(m.amount||0) * pct * 100) / 100;
+      const expectedConcept = buildDerivConcept(m, pct);
+      const needsWrite = !existing ||
+        Math.abs(Number(existing.amount||0) - expectedAmount) > 0.001 ||
+        existing.concept !== expectedConcept ||
+        existing.date !== m.date;
+      if (needsWrite){
+        db.ref("movements/"+key).set({
+          type: "ingreso",
+          category: "Personal",
+          concept: expectedConcept,
+          amount: expectedAmount,
+          date: m.date,
+          addedBy: m.addedBy || "",
+          source: "derivado",
+          derivedFrom: id,
+          createdAt: (existing && existing.createdAt) || Date.now()
+        });
+      }
+    } else if (existing){
+      db.ref("movements/"+key).remove();
+    }
+  });
+}
+function removePersonalDerivation(sourceId){
+  db.ref("movements/deriv_"+sourceId).remove();
 }
 
 function movementsOfMonth(){
@@ -685,7 +730,7 @@ function renderCategoryCards(wrapEl, movs, ingresosTotal){
 /* ---------- resumen mensual ---------- */
 function renderResumen(){
   const movs = movementsOfMonth();
-  const ingresos = movs.filter(m=>m.type==="ingreso").reduce((s,m)=>s+Number(m.amount||0),0);
+  const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const balance = ingresos - gastos;
 
@@ -708,7 +753,7 @@ function renderResumen(){
 /* ---------- resumen anual ---------- */
 function renderAnual(){
   const movs = movementsOfYear();
-  const ingresos = movs.filter(m=>m.type==="ingreso").reduce((s,m)=>s+Number(m.amount||0),0);
+  const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const balance = ingresos - gastos;
 
@@ -756,25 +801,9 @@ function renderMovList(){
   const monthMovs = movementsOfMonth();
   let displayList;
 
-  if (currentFilter === "Personal"){
-    const personalPct = getPct("Personal");
-    const realPersonalGastos = monthMovs.filter(m=>m.type==="gasto" && normalizeCategory(m.category)==="Personal");
-    const derived = monthMovs.filter(m=>m.type==="ingreso" && m.personalSplit).map(m=>({
-      id: m.id,
-      type: "ingreso",
-      category: "Personal",
-      concept: `10% derivado de "${m.concept || 'ingreso'}"`,
-      amount: Number(m.amount||0) * personalPct,
-      date: m.date,
-      addedBy: m.addedBy,
-      source: "derivado",
-      _derived: true,
-      _originalId: m.id,
-    }));
-    displayList = [...realPersonalGastos, ...derived].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  } else if (currentFilter === "ingreso") {
-    displayList = monthMovs.filter(m=>m.type==="ingreso");
-  } else if (currentFilter === "todos") {
+  if (currentFilter === "ingreso"){
+    displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado");
+  } else if (currentFilter === "todos"){
     displayList = monthMovs;
   } else {
     displayList = monthMovs.filter(m=>normalizeCategory(m.category)===currentFilter);
@@ -790,15 +819,16 @@ function renderMovList(){
     const row = document.createElement("div");
     row.className = "mv-item";
     const catNorm = normalizeCategory(m.category);
+    const isDerivado = m.source === "derivado";
     let tag;
-    if (m._derived){
+    if (isDerivado){
       tag = `<span class="mv-tag" style="background:var(--c-personal)">Derivado</span>`;
     } else if (m.type==="ingreso"){
       tag = `<span class="mv-tag" style="background:var(--good)">Ingreso</span>`;
     } else {
       tag = `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
     }
-    const amountDisplay = m._derived
+    const amountDisplay = isDerivado
       ? `<div class="mv-amount" style="color:var(--c-personal)">→ ${eur(m.amount)}</div>`
       : `<div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>`;
     row.innerHTML = `
@@ -808,20 +838,23 @@ function renderMovList(){
       </div>
       <div class="mv-right">
         ${amountDisplay}
-        ${m._derived
-          ? `<button class="mv-edit" data-id="${m._originalId}" title="Ver ingreso original">✎</button>`
+        ${isDerivado
+          ? `<button class="mv-edit" data-id="${m.derivedFrom}" title="Ver ingreso original">✎</button>`
           : `<button class="mv-edit" data-id="${m.id}">✎</button><button class="mv-del" data-id="${m.id}">✕</button>`}
       </div>
     `;
-    if (m._derived){
+    if (isDerivado){
       row.querySelector(".mv-edit").addEventListener("click", ()=>{
-        const orig = allMovements[m._originalId];
-        if (orig) openEditSheet({id: m._originalId, ...orig});
+        const orig = allMovements[m.derivedFrom];
+        if (orig) openEditSheet({id: m.derivedFrom, ...orig});
       });
     } else {
       row.querySelector(".mv-edit").addEventListener("click", ()=> openEditSheet(m));
       row.querySelector(".mv-del").addEventListener("click", ()=>{
-        if (confirm("¿Eliminar este movimiento?")) db.ref("movements/"+m.id).remove();
+        if (confirm("¿Eliminar este movimiento?")){
+          db.ref("movements/"+m.id).remove();
+          removePersonalDerivation(m.id);
+        }
       });
     }
     list.appendChild(row);
@@ -914,6 +947,7 @@ $("#deleteMovBtn").addEventListener("click", ()=>{
   if (!editingId) return;
   if (confirm("¿Eliminar este movimiento?")){
     db.ref("movements/"+editingId).remove();
+    removePersonalDerivation(editingId);
     $("#addSheetBackdrop").classList.remove("open");
   }
 });
