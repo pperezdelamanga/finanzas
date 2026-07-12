@@ -110,6 +110,10 @@
     font-size:12px; color:var(--text-soft); background:var(--paper-card); border:1px solid var(--line);
     border-radius:10px; padding:9px 12px; margin-bottom:12px;
   }
+  .section-title{
+    font-family:'Fraunces',serif; font-size:15px; font-weight:600; color:var(--ink);
+    margin:4px 0 8px; padding-left:2px;
+  }
 
   /* ---------- movements list ---------- */
   .mv-item{
@@ -272,6 +276,9 @@
         </div>
       </div>
       <div id="personalNote" class="personal-note" style="display:none;"></div>
+      <div class="section-title">Ingresos</div>
+      <div id="incomeCards"></div>
+      <div class="section-title">Gastos</div>
       <div id="catCards"></div>
     </section>
 
@@ -307,6 +314,9 @@
         </div>
       </div>
       <div id="personalNoteYear" class="personal-note" style="display:none;"></div>
+      <div class="section-title">Ingresos</div>
+      <div id="incomeCardsYear"></div>
+      <div class="section-title">Gastos</div>
       <div id="catCardsYear"></div>
     </section>
 
@@ -729,6 +739,35 @@ function computePersonalAmount(movs){
     .reduce((s,m)=> s + Number(m.amount||0) * personalPct, 0);
 }
 
+const INCOME_TYPES = [
+  { key: "Fijo",  label: "Fijos",  color: "var(--good)" },
+  { key: "Extra", label: "Extra",  color: "var(--c-otras)" },
+  { key: "Otros", label: "Otros",  color: "var(--c-transporte)" },
+];
+
+function renderIncomeCards(wrapEl, movs){
+  const realIncomes = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado");
+  const total = realIncomes.reduce((s,m)=>s+Number(m.amount||0),0);
+  wrapEl.innerHTML = "";
+  INCOME_TYPES.forEach(it=>{
+    const amount = realIncomes
+      .filter(m=> (m.incomeType || "Fijo") === it.key)
+      .reduce((s,m)=>s+Number(m.amount||0),0);
+    const pct = total > 0 ? Math.round((amount/total)*100) : 0;
+    const div = document.createElement("div");
+    div.className = "cat-card";
+    div.style.setProperty("--cc", it.color);
+    div.innerHTML = `
+      <div class="row1">
+        <span class="cat-name">${it.label}</span>
+        <span class="cat-pct">${pct}% del total</span>
+      </div>
+      <div class="amounts"><span class="spent num">${eur(amount)}</span></div>
+    `;
+    wrapEl.appendChild(div);
+  });
+}
+
 function renderCategoryCards(wrapEl, movs, ingresosTotal, personalAmount){
   const baseParaReparto = Math.max(0, ingresosTotal - personalAmount);
 
@@ -775,6 +814,7 @@ function renderResumen(){
   balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
+  renderIncomeCards($("#incomeCards"), movs);
   renderCategoryCards($("#catCards"), movs, ingresos, personalAmount);
   const note = $("#personalNote");
   if (personalAmount > 0){
@@ -802,6 +842,7 @@ function renderAnual(){
   balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
+  renderIncomeCards($("#incomeCardsYear"), movs);
   renderCategoryCards($("#catCardsYear"), movs, ingresos, personalAmount);
   const note = $("#personalNoteYear");
   if (personalAmount > 0){
@@ -865,26 +906,22 @@ function renderMovList(){
     const catNorm = normalizeCategory(m.category);
     const isDerivado = m.source === "derivado";
     let tag;
-    if (isDerivado){
-      tag = `<span class="mv-tag" style="background:var(--c-personal)">Derivado</span>`;
-    } else if (m.type==="ingreso"){
+    if (m.type==="ingreso" && !isDerivado){
       const incomeLabel = m.incomeType === "Extra" ? "Ingreso extra" : m.incomeType === "Otros" ? "Otro ingreso" : "Ingreso fijo";
       tag = `<span class="mv-tag" style="background:var(--good)">${incomeLabel}</span>`;
     } else {
       tag = `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
     }
-    const amountDisplay = isDerivado
-      ? `<div class="mv-amount" style="color:var(--c-personal)">→ ${eur(m.amount)}</div>`
-      : `<div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>`;
+    const amountDisplay = `<div class="mv-amount ${m.type}">${m.type==='gasto'?'-':'+'}${eur(m.amount)}</div>`;
     row.innerHTML = `
       <div class="mv-left">
         <div class="mv-concept">${m.concept || "(sin concepto)"}</div>
-        <div class="mv-meta">${tag}${formatDate(m.date)} · ${m.addedBy||""}${m.source==='pdf'?' · PDF':''}</div>
+        <div class="mv-meta">${tag}${formatDate(m.date)} · ${m.addedBy||""}${m.source==='pdf'?' · PDF':''}${isDerivado?' · automático':''}</div>
       </div>
       <div class="mv-right">
         ${amountDisplay}
         ${isDerivado
-          ? `<button class="mv-edit" data-id="${m.derivedFrom}" title="Ver ingreso original">✎</button>`
+          ? `<button class="mv-edit" data-id="${m.derivedFrom}" title="Editar el ingreso del que se deriva">✎</button>`
           : `<button class="mv-edit" data-id="${m.id}">✎</button><button class="mv-del" data-id="${m.id}">✕</button>`}
       </div>
     `;
