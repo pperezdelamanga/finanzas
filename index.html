@@ -336,6 +336,13 @@
       <label>Categoría</label>
       <select id="mvCategory"></select>
     </div>
+    <div class="field" id="incomeTypeField" style="display:none;">
+      <label>Tipo de ingreso</label>
+      <div class="toggle-row" style="margin-bottom:0;">
+        <button type="button" id="incomeFijoBtn" class="active" data-income-type="Fijo">Fijo</button>
+        <button type="button" id="incomeExtraBtn" data-income-type="Extra">Extra</button>
+      </div>
+    </div>
     <div class="field" id="personalSplitField" style="display:none;">
       <label style="display:flex; align-items:center; gap:9px; cursor:pointer; margin-bottom:0;">
         <input type="checkbox" id="mvPersonalSplit" style="width:18px; height:18px; flex:none;">
@@ -692,11 +699,14 @@ function renderAll(){
 }
 
 /* ---------- tarjetas de categoría (compartido entre resumen mensual y anual) ---------- */
-function renderCategoryCards(wrapEl, movs, ingresosTotal){
+function computePersonalAmount(movs){
   const personalPct = getPct("Personal");
-  const personalAmount = movs
+  return movs
     .filter(m=>m.type==="ingreso" && m.personalSplit)
     .reduce((s,m)=> s + Number(m.amount||0) * personalPct, 0);
+}
+
+function renderCategoryCards(wrapEl, movs, ingresosTotal, personalAmount){
   const baseParaReparto = Math.max(0, ingresosTotal - personalAmount);
 
   wrapEl.innerHTML = "";
@@ -723,8 +733,6 @@ function renderCategoryCards(wrapEl, movs, ingresosTotal){
     `;
     wrapEl.appendChild(div);
   });
-
-  return personalAmount;
 }
 
 /* ---------- resumen mensual ---------- */
@@ -732,7 +740,8 @@ function renderResumen(){
   const movs = movementsOfMonth();
   const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
-  const balance = ingresos - gastos;
+  const personalAmount = computePersonalAmount(movs);
+  const balance = (ingresos - personalAmount) - gastos;
 
   $("#sumIngresos").textContent = eurRound(ingresos);
   $("#sumGastos").textContent = eurRound(gastos);
@@ -740,11 +749,11 @@ function renderResumen(){
   balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
-  const personalAmount = renderCategoryCards($("#catCards"), movs, ingresos);
+  renderCategoryCards($("#catCards"), movs, ingresos, personalAmount);
   const note = $("#personalNote");
   if (personalAmount > 0){
     note.style.display = "block";
-    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este mes. El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
+    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este mes (no cuentan en el balance ni se reparten). El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
   } else {
     note.style.display = "none";
   }
@@ -755,7 +764,8 @@ function renderAnual(){
   const movs = movementsOfYear();
   const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
-  const balance = ingresos - gastos;
+  const personalAmount = computePersonalAmount(movs);
+  const balance = (ingresos - personalAmount) - gastos;
 
   $("#sumIngresosYear").textContent = eurRound(ingresos);
   $("#sumGastosYear").textContent = eurRound(gastos);
@@ -763,11 +773,11 @@ function renderAnual(){
   balEl.textContent = eurRound(balance);
   balEl.className = "value num " + (balance >= 0 ? "pos" : "neg");
 
-  const personalAmount = renderCategoryCards($("#catCardsYear"), movs, ingresos);
+  renderCategoryCards($("#catCardsYear"), movs, ingresos, personalAmount);
   const note = $("#personalNoteYear");
   if (personalAmount > 0){
     note.style.display = "block";
-    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este año. El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
+    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este año (no cuentan en el balance ni se reparten). El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
   } else {
     note.style.display = "none";
   }
@@ -775,13 +785,14 @@ function renderAnual(){
 
 /* ---------- movimientos list ---------- */
 function buildFilterChips(){
-  const chips = ["todos","ingreso", ...CATEGORIES.map(c=>c.key)];
+  const chips = ["todos","ingreso_fijo","ingreso_extra", ...CATEGORIES.map(c=>c.key)];
+  const labels = { "todos":"Todos", "ingreso_fijo":"Ingresos fijos", "ingreso_extra":"Ingresos extra" };
   const row = $("#filterRow");
   row.innerHTML = "";
   chips.forEach(c=>{
     const b = document.createElement("button");
     b.className = "chip" + (c==="todos" ? " active" : "");
-    b.textContent = c==="todos" ? "Todos" : c==="ingreso" ? "Ingresos" : c;
+    b.textContent = labels[c] || c;
     b.addEventListener("click", ()=>{
       currentFilter = c;
       document.querySelectorAll(".chip").forEach(ch=>ch.classList.remove("active"));
@@ -801,8 +812,10 @@ function renderMovList(){
   const monthMovs = movementsOfMonth();
   let displayList;
 
-  if (currentFilter === "ingreso"){
-    displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado");
+  if (currentFilter === "ingreso_fijo"){
+    displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado" && (m.incomeType||"Fijo")==="Fijo");
+  } else if (currentFilter === "ingreso_extra"){
+    displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado" && m.incomeType==="Extra");
   } else if (currentFilter === "todos"){
     displayList = monthMovs;
   } else {
@@ -824,7 +837,8 @@ function renderMovList(){
     if (isDerivado){
       tag = `<span class="mv-tag" style="background:var(--c-personal)">Derivado</span>`;
     } else if (m.type==="ingreso"){
-      tag = `<span class="mv-tag" style="background:var(--good)">Ingreso</span>`;
+      const incomeLabel = m.incomeType === "Extra" ? "Ingreso extra" : "Ingreso fijo";
+      tag = `<span class="mv-tag" style="background:var(--good)">${incomeLabel}</span>`;
     } else {
       tag = `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
     }
@@ -877,14 +891,23 @@ function populateCategorySelect(){
   });
 }
 let addType = "ingreso";
+let addIncomeType = "Fijo";
 let editingId = null; // null = creando nuevo; si tiene valor, estamos editando ese movimiento
 $("#typeIngresoBtn").addEventListener("click", ()=> setAddType("ingreso"));
 $("#typeGastoBtn").addEventListener("click", ()=> setAddType("gasto"));
+$("#incomeFijoBtn").addEventListener("click", ()=> setIncomeType("Fijo"));
+$("#incomeExtraBtn").addEventListener("click", ()=> setIncomeType("Extra"));
+function setIncomeType(t){
+  addIncomeType = t;
+  $("#incomeFijoBtn").classList.toggle("active", t==="Fijo");
+  $("#incomeExtraBtn").classList.toggle("active", t==="Extra");
+}
 function setAddType(t){
   addType = t;
   $("#typeIngresoBtn").classList.toggle("active", t==="ingreso");
   $("#typeGastoBtn").classList.toggle("active", t==="gasto");
   $("#categoryField").style.display = t==="gasto" ? "block" : "none";
+  $("#incomeTypeField").style.display = t==="ingreso" ? "block" : "none";
   $("#personalSplitField").style.display = t==="ingreso" ? "block" : "none";
   if (t === "ingreso"){
     $("#personalSplitLabel").textContent = `Derivar automáticamente el ${Math.round(getPct("Personal")*1000)/10}% a "Personal"`;
@@ -898,6 +921,7 @@ $("#fabAdd").addEventListener("click", ()=>{
   $("#mvAmount").value = "";
   $("#mvDate").value = todayIsoDate();
   $("#mvPersonalSplit").checked = false;
+  setIncomeType("Fijo");
   setAddType("ingreso");
   $("#addSheetBackdrop").classList.add("open");
 });
@@ -910,6 +934,7 @@ function openEditSheet(m){
   $("#mvAmount").value = m.amount || "";
   $("#mvDate").value = m.date || todayIsoDate();
   $("#mvPersonalSplit").checked = !!m.personalSplit;
+  setIncomeType(m.incomeType === "Extra" ? "Extra" : "Fijo");
   setAddType(m.type === "gasto" ? "gasto" : "ingreso");
   if (m.type === "gasto"){
     $("#mvCategory").value = normalizeCategory(m.category) || CATEGORIES[0].key;
@@ -928,6 +953,7 @@ $("#saveMovBtn").addEventListener("click", ()=>{
   const data = {
     type: addType,
     category: addType === "gasto" ? $("#mvCategory").value : null,
+    incomeType: addType === "ingreso" ? addIncomeType : null,
     personalSplit: addType === "ingreso" ? $("#mvPersonalSplit").checked : false,
     concept, amount, date,
     addedBy: currentUser,
@@ -1086,7 +1112,7 @@ async function extractMovementsFromPdf(file){
     const absAmount = Math.abs(rawAmount);
     const category = type === "gasto" ? suggestCategory(concept) : "";
     const flaggedDuplicate = isLikelyDuplicateLine(concept);
-    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate, personalSplit: false });
+    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate, personalSplit: false, incomeType: "Fijo" });
   });
   return rows;
 }
@@ -1121,10 +1147,16 @@ function renderReviewList(){
         </select>
       </div>
       ${row.type === "ingreso" ? `
-      <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-soft); margin-top:7px;">
-        <input type="checkbox" class="rv-personal" data-idx="${idx}" ${row.personalSplit?"checked":""} style="width:16px;height:16px;">
-        Derivar ${Math.round(getPct("Personal")*1000)/10}% a "Personal"
-      </label>` : ""}
+      <div style="display:flex; align-items:center; gap:10px; margin-top:7px; flex-wrap:wrap;">
+        <select data-idx="${idx}" class="rv-income-type" style="border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:12px; background:var(--paper); font-family:inherit;">
+          <option value="Fijo" ${(row.incomeType||"Fijo")==="Fijo"?"selected":""}>Ingreso fijo</option>
+          <option value="Extra" ${row.incomeType==="Extra"?"selected":""}>Ingreso extra</option>
+        </select>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-soft);">
+          <input type="checkbox" class="rv-personal" data-idx="${idx}" ${row.personalSplit?"checked":""} style="width:16px;height:16px;">
+          Derivar ${Math.round(getPct("Personal")*1000)/10}% a "Personal"
+        </label>
+      </div>` : ""}
     `;
     wrap.appendChild(div);
   });
@@ -1145,6 +1177,9 @@ function renderReviewList(){
   wrap.querySelectorAll(".rv-personal").forEach(el=> el.addEventListener("change", e=>{
     pendingImportRows[e.target.dataset.idx].personalSplit = e.target.checked;
   }));
+  wrap.querySelectorAll(".rv-income-type").forEach(el=> el.addEventListener("change", e=>{
+    pendingImportRows[e.target.dataset.idx].incomeType = e.target.value;
+  }));
   wrap.querySelectorAll(".rv-type-cat").forEach(el=> el.addEventListener("change", e=>{
     const idx = e.target.dataset.idx;
     const val = e.target.value;
@@ -1164,6 +1199,7 @@ $("#confirmImportBtn").addEventListener("click", ()=>{
     const data = {
       type: r.type,
       category: r.type==="gasto" ? r.category : null,
+      incomeType: r.type==="ingreso" ? (r.incomeType||"Fijo") : null,
       personalSplit: r.type==="ingreso" ? !!r.personalSplit : false,
       concept: r.concept,
       amount: r.amount,
