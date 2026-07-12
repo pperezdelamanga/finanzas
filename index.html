@@ -341,6 +341,7 @@
       <div class="toggle-row" style="margin-bottom:0;">
         <button type="button" id="incomeFijoBtn" class="active" data-income-type="Fijo">Fijo</button>
         <button type="button" id="incomeExtraBtn" data-income-type="Extra">Extra</button>
+        <button type="button" id="incomeOtrosBtn" data-income-type="Otros">Otros</button>
       </div>
     </div>
     <div class="field" id="personalSplitField" style="display:none;">
@@ -785,8 +786,8 @@ function renderAnual(){
 
 /* ---------- movimientos list ---------- */
 function buildFilterChips(){
-  const chips = ["todos","ingreso_fijo","ingreso_extra", ...CATEGORIES.map(c=>c.key)];
-  const labels = { "todos":"Todos", "ingreso_fijo":"Ingresos fijos", "ingreso_extra":"Ingresos extra" };
+  const chips = ["todos","ingreso_fijo","ingreso_extra","ingreso_otros", ...CATEGORIES.map(c=>c.key)];
+  const labels = { "todos":"Todos", "ingreso_fijo":"Ingresos fijos", "ingreso_extra":"Ingresos extra", "ingreso_otros":"Otros ingresos" };
   const row = $("#filterRow");
   row.innerHTML = "";
   chips.forEach(c=>{
@@ -816,6 +817,8 @@ function renderMovList(){
     displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado" && (m.incomeType||"Fijo")==="Fijo");
   } else if (currentFilter === "ingreso_extra"){
     displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado" && m.incomeType==="Extra");
+  } else if (currentFilter === "ingreso_otros"){
+    displayList = monthMovs.filter(m=>m.type==="ingreso" && m.source!=="derivado" && m.incomeType==="Otros");
   } else if (currentFilter === "todos"){
     displayList = monthMovs;
   } else {
@@ -837,7 +840,7 @@ function renderMovList(){
     if (isDerivado){
       tag = `<span class="mv-tag" style="background:var(--c-personal)">Derivado</span>`;
     } else if (m.type==="ingreso"){
-      const incomeLabel = m.incomeType === "Extra" ? "Ingreso extra" : "Ingreso fijo";
+      const incomeLabel = m.incomeType === "Extra" ? "Ingreso extra" : m.incomeType === "Otros" ? "Otro ingreso" : "Ingreso fijo";
       tag = `<span class="mv-tag" style="background:var(--good)">${incomeLabel}</span>`;
     } else {
       tag = `<span class="mv-tag" style="background:${catColor(catNorm)}">${catNorm||"Sin categoría"}</span>`;
@@ -897,10 +900,12 @@ $("#typeIngresoBtn").addEventListener("click", ()=> setAddType("ingreso"));
 $("#typeGastoBtn").addEventListener("click", ()=> setAddType("gasto"));
 $("#incomeFijoBtn").addEventListener("click", ()=> setIncomeType("Fijo"));
 $("#incomeExtraBtn").addEventListener("click", ()=> setIncomeType("Extra"));
+$("#incomeOtrosBtn").addEventListener("click", ()=> setIncomeType("Otros"));
 function setIncomeType(t){
   addIncomeType = t;
   $("#incomeFijoBtn").classList.toggle("active", t==="Fijo");
   $("#incomeExtraBtn").classList.toggle("active", t==="Extra");
+  $("#incomeOtrosBtn").classList.toggle("active", t==="Otros");
 }
 function setAddType(t){
   addType = t;
@@ -934,7 +939,7 @@ function openEditSheet(m){
   $("#mvAmount").value = m.amount || "";
   $("#mvDate").value = m.date || todayIsoDate();
   $("#mvPersonalSplit").checked = !!m.personalSplit;
-  setIncomeType(m.incomeType === "Extra" ? "Extra" : "Fijo");
+  setIncomeType(m.incomeType === "Extra" ? "Extra" : m.incomeType === "Otros" ? "Otros" : "Fijo");
   setAddType(m.type === "gasto" ? "gasto" : "ingreso");
   if (m.type === "gasto"){
     $("#mvCategory").value = normalizeCategory(m.category) || CATEGORIES[0].key;
@@ -1151,6 +1156,7 @@ function renderReviewList(){
         <select data-idx="${idx}" class="rv-income-type" style="border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:12px; background:var(--paper); font-family:inherit;">
           <option value="Fijo" ${(row.incomeType||"Fijo")==="Fijo"?"selected":""}>Ingreso fijo</option>
           <option value="Extra" ${row.incomeType==="Extra"?"selected":""}>Ingreso extra</option>
+          <option value="Otros" ${row.incomeType==="Otros"?"selected":""}>Otro ingreso</option>
         </select>
         <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-soft);">
           <input type="checkbox" class="rv-personal" data-idx="${idx}" ${row.personalSplit?"checked":""} style="width:16px;height:16px;">
