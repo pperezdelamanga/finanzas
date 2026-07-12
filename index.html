@@ -85,10 +85,12 @@
   .tab-panel.active{display:block;}
 
   /* ---------- summary cards ---------- */
-  .totals-row{display:flex; gap:8px; margin-bottom:18px;}
+  .totals-row{display:flex; gap:8px; margin-bottom:8px;}
+  .totals-row-2{margin-bottom:18px;}
   .total-card{flex:1; min-width:0; background:var(--paper-card); border-radius:14px; padding:11px 10px; border:1px solid var(--line);}
   .total-card .label{font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .total-card .value{font-size:clamp(13px, 4.4vw, 18px); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .total-card.derivado .value{color:var(--c-personal);}
   .total-card.balance .value.pos{color:var(--good);}
   .total-card.balance .value.neg{color:var(--bad);}
 
@@ -250,6 +252,16 @@
           <div class="label">Ingresos</div>
           <div class="value num" id="sumIngresos">0 €</div>
         </div>
+        <div class="total-card derivado">
+          <div class="label">10% derivado</div>
+          <div class="value num" id="sumDerivado">0 €</div>
+        </div>
+        <div class="total-card">
+          <div class="label">Ingresos comunes</div>
+          <div class="value num" id="sumIngresosComunes">0 €</div>
+        </div>
+      </div>
+      <div class="totals-row totals-row-2">
         <div class="total-card">
           <div class="label">Gastos</div>
           <div class="value num" id="sumGastos">0 €</div>
@@ -275,6 +287,16 @@
           <div class="label">Ingresos</div>
           <div class="value num" id="sumIngresosYear">0 €</div>
         </div>
+        <div class="total-card derivado">
+          <div class="label">10% derivado</div>
+          <div class="value num" id="sumDerivadoYear">0 €</div>
+        </div>
+        <div class="total-card">
+          <div class="label">Ingresos comunes</div>
+          <div class="value num" id="sumIngresosComunesYear">0 €</div>
+        </div>
+      </div>
+      <div class="totals-row totals-row-2">
         <div class="total-card">
           <div class="label">Gastos</div>
           <div class="value num" id="sumGastosYear">0 €</div>
@@ -742,9 +764,12 @@ function renderResumen(){
   const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const personalAmount = computePersonalAmount(movs);
-  const balance = (ingresos - personalAmount) - gastos;
+  const ingresosComunes = ingresos - personalAmount;
+  const balance = ingresosComunes - gastos;
 
   $("#sumIngresos").textContent = eurRound(ingresos);
+  $("#sumDerivado").textContent = eurRound(personalAmount);
+  $("#sumIngresosComunes").textContent = eurRound(ingresosComunes);
   $("#sumGastos").textContent = eurRound(gastos);
   const balEl = $("#sumBalance");
   balEl.textContent = eurRound(balance);
@@ -754,7 +779,7 @@ function renderResumen(){
   const note = $("#personalNote");
   if (personalAmount > 0){
     note.style.display = "block";
-    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este mes (no cuentan en el balance ni se reparten). El resto de categorías se reparte sobre los ${eur(ingresos - personalAmount)} restantes.`;
+    note.textContent = `🔀 ${eur(personalAmount)} derivados a Personal este mes (no cuentan en el balance ni se reparten). El resto de categorías se reparte sobre los ${eur(ingresosComunes)} restantes.`;
   } else {
     note.style.display = "none";
   }
@@ -766,9 +791,12 @@ function renderAnual(){
   const ingresos = movs.filter(m=>m.type==="ingreso" && m.source!=="derivado").reduce((s,m)=>s+Number(m.amount||0),0);
   const gastos = movs.filter(m=>m.type==="gasto").reduce((s,m)=>s+Number(m.amount||0),0);
   const personalAmount = computePersonalAmount(movs);
-  const balance = (ingresos - personalAmount) - gastos;
+  const ingresosComunes = ingresos - personalAmount;
+  const balance = ingresosComunes - gastos;
 
   $("#sumIngresosYear").textContent = eurRound(ingresos);
+  $("#sumDerivadoYear").textContent = eurRound(personalAmount);
+  $("#sumIngresosComunesYear").textContent = eurRound(ingresosComunes);
   $("#sumGastosYear").textContent = eurRound(gastos);
   const balEl = $("#sumBalanceYear");
   balEl.textContent = eurRound(balance);
