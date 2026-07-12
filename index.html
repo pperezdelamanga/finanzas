@@ -772,16 +772,13 @@ function renderCategoryCards(wrapEl, movs, ingresosTotal, personalAmount){
   const baseParaReparto = Math.max(0, ingresosTotal - personalAmount);
 
   wrapEl.innerHTML = "";
-  CATEGORIES.forEach(cat=>{
+  CATEGORIES.filter(cat => cat.special !== "personal").forEach(cat=>{
     const spent = movs.filter(m=>m.type==="gasto" && normalizeCategory(m.category)===cat.key).reduce((s,m)=>s+Number(m.amount||0),0);
-    const isPersonal = cat.special === "personal";
     const pct = getPct(cat.key);
-    const forecast = isPersonal ? personalAmount : baseParaReparto * pct;
+    const forecast = baseParaReparto * pct;
     const pctUsed = forecast > 0 ? Math.min(100, (spent/forecast)*100) : (spent>0?100:0);
     const over = forecast > 0 && spent > forecast;
-    const pctLabel = isPersonal
-      ? `${Math.round(pct*1000)/10}% de ingresos marcados`
-      : `${Math.round(pct*1000)/10}% del resto`;
+    const pctLabel = `${Math.round(pct*1000)/10}% del resto`;
     const div = document.createElement("div");
     div.className = "cat-card";
     div.style.setProperty("--cc", cat.color);
