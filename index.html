@@ -331,13 +331,13 @@
       <div id="movList"></div>
     </section>
 
-    <!-- IMPORTAR PDF -->
+    <!-- IMPORTAR PDF/CSV -->
     <section class="tab-panel" id="tab-import">
       <div class="drop">
         <div style="font-size:28px; margin-bottom:8px;">📄</div>
-        <label for="pdfInput">Elegir PDF del banco</label>
-        <input type="file" id="pdfInput" accept="application/pdf">
-        <div style="font-size:12px; margin-top:8px;">Extrae los movimientos del mes y te dejo revisar la categoría de cada uno antes de guardarlos.</div>
+        <label for="pdfInput">Elegir archivo del banco (PDF o CSV)</label>
+        <input type="file" id="pdfInput" accept="application/pdf,.csv,text/csv">
+        <div style="font-size:12px; margin-top:8px;">Extrae los movimientos del mes y te dejo revisar la categoría de cada uno antes de guardarlos. Si el banco te deja elegir, el CSV suele detectarse de forma más fiable que el PDF.</div>
       </div>
       <div id="importStatus" style="font-size:13px; color:var(--text-soft); margin-bottom:10px;"></div>
       <div id="reviewList"></div>
@@ -351,7 +351,7 @@
     <button class="tab-btn" data-tab="anual"><span class="ic">📅</span>Año</button>
     <button class="tab-btn active" data-tab="resumen"><span class="ic">📊</span>Mes</button>
     <button class="tab-btn" data-tab="movs"><span class="ic">📋</span>Movimientos</button>
-    <button class="tab-btn" data-tab="import"><span class="ic">📥</span>Importar PDF</button>
+    <button class="tab-btn" data-tab="import"><span class="ic">📥</span>Importar</button>
   </nav>
 </div>
 
@@ -1116,11 +1116,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 $("#pdfInput").addEventListener("change", async (e)=>{
   const file = e.target.files[0];
   if (!file) return;
-  $("#importStatus").textContent = "Leyendo el PDF...";
+  const isCsv = /\.csv$/i.test(file.name) || file.type === "text/csv";
+  $("#importStatus").textContent = isCsv ? "Leyendo el CSV..." : "Leyendo el PDF...";
   $("#reviewList").innerHTML = "";
   $("#confirmImportBtn").style.display = "none";
   try {
-    const rows = await extractMovementsFromPdf(file);
+    const rows = isCsv ? await extractMovementsFromCsv(file) : await extractMovementsFromPdf(file);
     pendingImportRows = rows;
     renderReviewList();
     $("#importStatus").textContent = rows.length
@@ -1129,10 +1130,85 @@ $("#pdfInput").addEventListener("change", async (e)=>{
     $("#confirmImportBtn").style.display = rows.length ? "block" : "none";
   } catch(err){
     console.error(err);
-    $("#importStatus").textContent = "No he podido leer este PDF. Prueba con otro archivo o añade los movimientos a mano.";
+    $("#importStatus").textContent = isCsv
+      ? "No he podido leer este CSV. Prueba con el PDF o añade los movimientos a mano."
+      : "No he podido leer este PDF. Prueba con el CSV (si tu banco lo ofrece) o añade los movimientos a mano.";
   }
 });
 
+/* Construye una fila de importación a partir de fecha/concepto/importe ya extraídos,
+   compartido entre el lector de CSV y el de PDF para no duplicar la lógica de categoría/duplicados. */
+function buildImportRow(isoDate, concept, rawAmount){
+  if (isNaN(rawAmount) || rawAmount === 0) return null;
+  concept = concept.replace(/\s{2,}/g, " ").trim();
+  if (concept.length < 2) return null;
+  const type = rawAmount < 0 ? "gasto" : "ingreso";
+  const absAmount = Math.abs(rawAmount);
+  const category = type === "gasto" ? suggestCategory(concept) : "";
+  const flaggedDuplicate = isLikelyDuplicateLine(concept);
+  return { date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate, personalSplit: false, incomeType: "Fijo" };
+}
+
+/* ---------- lector de CSV ----------
+   Pensado para extractos de tarjeta exportados como CSV separado por ; (formato habitual
+   de BBVA/CaixaBank y similares), normalmente codificados en Windows-1252 en vez de UTF-8.
+   Busca las columnas por nombre (Fecha, Importe, Concepto/Establecimiento) para no depender
+   de un orden de columnas fijo. */
+async function extractMovementsFromCsv(file){
+  const buf = await file.arrayBuffer();
+  let text;
+  try {
+    text = new TextDecoder("windows-1252").decode(buf);
+  } catch(e){
+    text = new TextDecoder("utf-8").decode(buf);
+  }
+  // Si tras decodificar como windows-1252 no aparecen tildes donde se esperan, probar UTF-8
+  if (!/[áéíóúñÁÉÍÓÚÑ]/.test(text) && /[\x80-\xFF]/.test(new TextDecoder("latin1").decode(buf))){
+    try { text = new TextDecoder("utf-8").decode(buf); } catch(e){}
+  }
+
+  const rawLines = text.split(/\r\n|\r|\n/).filter(l => l.trim().length > 0);
+  if (rawLines.length < 2) return [];
+
+  const delimiter = (rawLines[0].match(/;/g) || []).length >= (rawLines[0].match(/,/g) || []).length ? ";" : ",";
+  const splitCsvLine = (line) => line.split(delimiter).map(c => c.trim());
+
+  const header = splitCsvLine(rawLines[0]).map(h => h.toLowerCase());
+  const findCol = (...keywords) => header.findIndex(h => keywords.some(k => h.includes(k)));
+
+  const idxFecha = findCol("fecha");
+  const idxImporte = findCol("importe", "cargo", "abono", "cantidad");
+  const idxConcepto = findCol("establecimiento", "concepto", "descripcion", "descripción");
+  const idxOperacion = findCol("operaci");
+  if (idxFecha === -1 || idxImporte === -1) return [];
+
+  const amountRe = /(-?\d{1,3}(?:[.\s]\d{3})*,\d{2})/;
+  const dateRe = /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/;
+
+  const rows = [];
+  for (let i=1; i<rawLines.length; i++){
+    const cols = splitCsvLine(rawLines[i]);
+    if (cols.length < 2) continue;
+    const dateMatch = (cols[idxFecha]||"").match(dateRe);
+    if (!dateMatch) continue;
+    const isoDate = toIsoDate(dateMatch[0]);
+    if (!isoDate) continue;
+    const amountMatch = (cols[idxImporte]||"").match(amountRe);
+    if (!amountMatch) continue;
+    const rawAmount = parseFloat(amountMatch[1].replace(/[.\s]/g,"").replace(",", "."));
+    let concept = (idxConcepto !== -1 ? cols[idxConcepto] : "") || "";
+    if (!concept && idxOperacion !== -1) concept = cols[idxOperacion] || "";
+    const row = buildImportRow(isoDate, concept, rawAmount);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+/* ---------- lector de PDF ----------
+   Algunos extractos reparten cada movimiento en varias líneas (fecha, hora+operación,
+   establecimiento e importe en líneas separadas) en vez de todo en una sola línea.
+   Por eso no basta con buscar fecha+importe en la misma línea: se va acumulando el texto
+   desde que aparece una fecha hasta que aparece un importe, y eso forma un movimiento. */
 async function extractMovementsFromPdf(file){
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data: buf}).promise;
@@ -1140,7 +1216,6 @@ async function extractMovementsFromPdf(file){
   for (let p=1; p<=pdf.numPages; p++){
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-    // group items into lines by y position
     const byY = {};
     content.items.forEach(it=>{
       const y = Math.round(it.transform[5]);
@@ -1152,35 +1227,60 @@ async function extractMovementsFromPdf(file){
       lines.push(items.map(it=>it.str).join(" ").replace(/\s+/g," ").trim());
     });
   }
+
   const dateRe = /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/;
   const amountRe = /(?<![\d.,])(-?\d{1,3}(?:[.\s]\d{3})*,\d{2})(?!\d)\s*€?/g;
+  const BOILERPLATE = [
+    /venta\s+t\.p\.v\.?/gi, /devoluci[oó]n\s+de\s+venta/gi,
+    /cargo\s+cuota\s+a\s+titulares(\s+tarjeta)?/gi,
+    /\b\d{1,2}:\d{2}\b/g, /\baplazar\b/gi
+  ];
+  function cleanConcept(s){
+    BOILERPLATE.forEach(re => { s = s.replace(re, " "); });
+    return s.replace(/\s{2,}/g, " ").trim();
+  }
 
   const rows = [];
+  let currentDate = null;
+  let conceptParts = [];
+
   lines.forEach(line=>{
     const dateMatch = line.match(dateRe);
-    if (!dateMatch) return;
     const amounts = [...line.matchAll(amountRe)];
-    if (amounts.length === 0) return;
-    const amountStr = amounts[0][1];
-    const rawAmount = parseFloat(amountStr.replace(/[.\s]/g,"").replace(",", "."));
-    if (isNaN(rawAmount) || rawAmount === 0) return;
-    let concept = line
-      .replace(dateMatch[0], "")
-      .replace(amountStr, "")
-      .replace(/€/g, "")
-      .trim();
-    concept = concept.replace(/\s{2,}/g, " ");
-    if (concept.length < 2) return;
 
-    const isoDate = toIsoDate(dateMatch[0]);
-    if (!isoDate) return;
+    if (dateMatch && amounts.length === 0){
+      // Línea que solo marca el inicio de un movimiento nuevo (fecha sola, o fecha + texto sin importe)
+      currentDate = toIsoDate(dateMatch[0]);
+      const rest = line.replace(dateMatch[0], "");
+      conceptParts = rest.trim() ? [rest] : [];
+      return;
+    }
 
-    const type = rawAmount < 0 ? "gasto" : "ingreso";
-    const absAmount = Math.abs(rawAmount);
-    const category = type === "gasto" ? suggestCategory(concept) : "";
-    const flaggedDuplicate = isLikelyDuplicateLine(concept);
-    rows.push({ date: isoDate, concept, amount: absAmount, type, category, include: !flaggedDuplicate, flaggedDuplicate, personalSplit: false, incomeType: "Fijo" });
+    if (amounts.length > 0){
+      // Esta línea trae un importe: si también trae fecha, es un movimiento de una sola línea (formato antiguo);
+      // si no, cierra el movimiento que se venía acumulando desde la última fecha vista.
+      const isoDate = dateMatch ? toIsoDate(dateMatch[0]) : currentDate;
+      if (!isoDate){ return; }
+      const amountStr = amounts[0][1];
+      const rawAmount = parseFloat(amountStr.replace(/[.\s]/g,"").replace(",", "."));
+      let lineText = line;
+      if (dateMatch) lineText = lineText.replace(dateMatch[0], "");
+      amounts.forEach(a => { lineText = lineText.replace(a[0], " "); });
+      lineText = lineText.replace(/€/g, " ").replace(/\beur\.?/gi, " ");
+      const fullConcept = cleanConcept([...conceptParts, lineText].join(" "));
+      const row = buildImportRow(isoDate, fullConcept, rawAmount);
+      if (row) rows.push(row);
+      currentDate = null;
+      conceptParts = [];
+      return;
+    }
+
+    // Línea sin fecha ni importe: texto de concepto que se va acumulando (establecimiento, operación...)
+    if (currentDate){
+      conceptParts.push(line);
+    }
   });
+
   return rows;
 }
 
